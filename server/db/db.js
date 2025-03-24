@@ -1,11 +1,11 @@
+// server/db/db.js
 const { Pool } = require("pg");
-require("dotenv").config();
 
 const pool = new Pool({
   user: "kurmanbek",
   host: "localhost",
   database: "baza",
-  password: "", // если без пароля, оставь пустым
+  password: "Kurmanbek_1200",
   port: 5432,
 });
 

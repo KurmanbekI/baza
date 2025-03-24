@@ -1,77 +1,67 @@
 const express = require("express");
 const router = express.Router();
-const db = require("../db/db");
+const db = require("../db/db.js");
 
-// Получить табель за день
-router.get("/day", async (req, res) => {
-  const { date } = req.query;
-  try {
-    const employees = await db.query("SELECT id, name FROM users WHERE role NOT IN ('начальник', 'директор', 'снабженец')");
-
-    const records = await Promise.all(
-      employees.rows.map(async (emp) => {
-        const timeRes = await db.query(
-          "SELECT start_time, end_time FROM timesheet WHERE employee_id = $1 AND date = $2",
-          [emp.id, date]
-        );
-        const taskRes = await db.query(
-          "SELECT title FROM tasks WHERE employee_id = $1 AND date = $2",
-          [emp.id, date]
-        );
-
-        return {
-          name: emp.name,
-          start_time: timeRes.rows[0]?.start_time || "",
-          end_time: timeRes.rows[0]?.end_time || "",
-          tasks: taskRes.rows.map((t) => t.title),
-        };
-      })
-    );
-
-    res.json(records);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Ошибка при получении табеля за день" });
-  }
-});
-
-// Получить табель за месяц
-router.get("/month", async (req, res) => {
-  const { month } = req.query;
-  try {
-    const result = await db.query(
-      `SELECT u.name, COUNT(t.*) AS workdays, 
-        SUM(EXTRACT(EPOCH FROM (t.end_time - t.start_time))/3600) AS hours 
-       FROM timesheet t
-       JOIN users u ON u.id = t.employee_id
-       WHERE TO_CHAR(t.date, 'YYYY-MM') = $1
-       GROUP BY u.name`,
-      [month]
-    );
-
-    res.json(result.rows);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Ошибка при получении табеля за месяц" });
-  }
-});
-
-// Добавить табель
+// Добавление табеля (POST)s
 router.post("/add", async (req, res) => {
   const { date, timesheet } = req.body;
 
   try {
-    for (const [employee_id, time] of Object.entries(timesheet)) {
+    for (let employee_id in timesheet) {
+      const { start, end } = timesheet[employee_id];
       await db.query(
-        "INSERT INTO timesheet (employee_id, date, start_time, end_time) VALUES ($1, $2, $3, $4) ON CONFLICT (employee_id, date) DO UPDATE SET start_time = $3, end_time = $4",
-        [employee_id, date, time.start, time.end]
+        "INSERT INTO timesheet (employee_id, date, start_time, end_time) VALUES ($1, $2, $3, $4)",
+        [employee_id, date, start, end]
       );
     }
+    res.json({ success: true, message: "Табель успешно добавлен" });
+  } catch (error) {
+    console.error("Ошибка при добавлении табеля:", error);
+    res.status(500).json({ success: false, message: "Ошибка при добавлении табеля" });
+  }
+});
 
-    res.json({ message: "Табель успешно сохранён" });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Ошибка при сохранении табеля" });
+// Табель за конкретный день (GET)
+router.get("/day", async (req, res) => {
+  const { date } = req.query;
+
+  try {
+    const result = await db.query(
+      `SELECT e.name, t.start_time, t.end_time, COALESCE(array_agg(ts.title), '{}') AS tasks
+       FROM timesheet t
+       JOIN employees e ON e.id = t.employee_id
+       LEFT JOIN tasks ts ON ts.employee_id = e.id AND ts.date = t.date
+       WHERE t.date = $1
+       GROUP BY e.name, t.start_time, t.end_time`,
+      [date]
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error("Ошибка при получении табеля за день:", error);
+    res.status(500).json({ success: false, message: "Ошибка при получении табеля за день" });
+  }
+});
+
+// Табель за месяц (GET)
+router.get("/month", async (req, res) => {
+  const { month, year } = req.query;
+
+  try {
+    const result = await db.query(
+      `SELECT e.name,
+              COUNT(t.date) AS days_worked,
+              COUNT(*) FILTER (WHERE t.start_time IS NULL) AS missed_days,
+              SUM(EXTRACT(EPOCH FROM (t.end_time - t.start_time))/3600 - 1) AS total_hours
+       FROM timesheet t
+       JOIN employees e ON e.id = t.employee_id
+       WHERE EXTRACT(MONTH FROM t.date) = $1 AND EXTRACT(YEAR FROM t.date) = $2
+       GROUP BY e.name`,
+      [month, year]
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error("Ошибка при получении табеля за месяц:", error);
+    res.status(500).json({ success: false, message: "Ошибка при получении табеля за месяц" });
   }
 });
 

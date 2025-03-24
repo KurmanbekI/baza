@@ -1,36 +1,30 @@
-const express = require('express');
+// server/routes/auth.js
+const express = require("express");
 const router = express.Router();
-const db = require('../db'); // ✅ правильно
-const bcrypt = require('bcrypt');
+const db = require("../db/db.js");
+const bcrypt = require("bcrypt");
 
-// 🔐 Авторизация по логину и паролю
-router.post('/login', async (req, res) => {
+router.post("/login", async (req, res) => {
   const { login, password } = req.body;
-
+  
   try {
-    const result = await db.query('SELECT * FROM users WHERE login = $1', [login]);
-
+    const result = await db.query("SELECT * FROM users WHERE login = $1", [login]);
+    
     if (result.rows.length === 0) {
-      return res.status(401).json({ message: 'Пользователь не найден' });
+      return res.status(401).json({ message: "Неверный логин или пароль" });
     }
-
+    
     const user = result.rows[0];
-
-    const match = await bcrypt.compare(password, user.password);
-    if (!match) {
-      return res.status(401).json({ message: 'Неверный пароль' });
+    
+    const valid = await bcrypt.compare(password, user.password);
+    if (!valid) {
+      return res.status(401).json({ message: "Неверный логин или пароль" });
     }
-
-    res.status(200).json({
-      user: {
-        id: user.id,
-        name: user.name,
-        role: user.role,
-      },
-    });
-  } catch (error) {
-    console.error('❌ Ошибка авторизации:', error);
-    res.status(500).json({ message: 'Ошибка сервера' });
+    
+    res.json({ user: { id: user.id, name: user.name, role: user.role } });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Ошибка сервера" });
   }
 });
 

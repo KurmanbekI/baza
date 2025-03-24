@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+// src/pages/supervisor/timesheet/add.tsx
+import { useState, useEffect } from "react";
 import axios from "axios";
-import styles from "@/styles/Sidebar.module.css";
 import { useRouter } from "next/router";
+import styles from "@/styles/Supervisor.module.css";
 import { FaBars } from "react-icons/fa";
 
 export default function TimesheetAddPage() {
@@ -12,34 +13,31 @@ export default function TimesheetAddPage() {
   const [date, setDate] = useState("");
   const [message, setMessage] = useState("");
 
-  useEffect(() => {
-    const fetchEmployees = async () => {
-      const res = await axios.get("http://localhost:3001/employees");
-      setEmployees(res.data);
-    };
-    fetchEmployees();
-  }, []);
-
   const handleToggleSidebar = () => setShowSidebar(!showSidebar);
 
+  const handleLogout = () => {
+    localStorage.removeItem("user");
+    router.push("/login");
+  };
+
+  useEffect(() => {
+    axios.get("http://localhost:3001/employees").then((res) => setEmployees(res.data));
+  }, []);
+
   const handleChange = (id, field, value) => {
-    setTimesheet((prev) => ({
-      ...prev,
+    setTimesheet({
+      ...timesheet,
       [id]: {
-        ...prev[id],
+        ...(timesheet[id] || {}),
         [field]: value,
       },
-    }));
+    });
   };
 
   const handleSave = async () => {
     if (!date) return setMessage("Выберите дату");
-
     try {
-      await axios.post("http://localhost:3001/timesheet/add", {
-        date,
-        data: timesheet,
-      });
+      await axios.post("http://localhost:3001/timesheet/add", { date, timesheet });
       setMessage("Сохранено успешно");
     } catch {
       setMessage("Ошибка сохранения");
@@ -57,29 +55,29 @@ export default function TimesheetAddPage() {
 
       <div className={`${styles.sidebar} ${!showSidebar ? styles.sidebarHidden : ""}`}>
         <ul>
-          <li onClick={() => router.push("/supervisor")}>Главная</li>
-          <li onClick={() => router.push("/supervisor/timesheet/add")} style={{ fontWeight: "bold" }}>
-            Добавить табель
-          </li>
+          <li onClick={() => router.push("/supervisor/timesheet/add")}>Добавить табель</li>
           <li onClick={() => router.push("/supervisor/timesheet/month")}>Табель за месяц</li>
           <li onClick={() => router.push("/supervisor/timesheet/day")}>Табель за день</li>
+          <li onClick={() => router.push("/supervisor/add-tasks")}>Добавить задание</li>
+          <li onClick={() => router.push("/supervisor/director-tasks")}>Задания от директора</li>
+          <li onClick={() => router.push("/supervisor/warehouse")}>Склад</li>
+          <li onClick={() => router.push("/supervisor/request")}>Заявка снабженцу</li>
+          <li onClick={() => router.push("/supervisor/projects")}>Выполненные проекты</li>
+          <li onClick={() => router.push("/supervisor/tools")}>Личные карточки</li>
+          <li onClick={() => router.push("/supervisor/hr")}>УЧР</li>
+          <li onClick={handleLogout} style={{ color: "red", marginTop: 20 }}>Выйти</li>
         </ul>
       </div>
 
       <div className={styles.content}>
-        <h2>Табель</h2>
-        <input
-          type="date"
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
-          className={styles.datePicker}
-        />
+        <h2>Добавить табель</h2>
+        <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={styles.input} />
         <table className={styles.table}>
           <thead>
             <tr>
-              <th>Имя и Фамилия</th>
-              <th>Время прихода</th>
-              <th>Время ухода</th>
+              <th>Имя</th>
+              <th>Приход</th>
+              <th>Уход</th>
             </tr>
           </thead>
           <tbody>
@@ -105,7 +103,7 @@ export default function TimesheetAddPage() {
           </tbody>
         </table>
         <button className={styles.saveBtn} onClick={handleSave}>Сохранить</button>
-        <p>{message}</p>
+        {message && <p>{message}</p>}
       </div>
     </div>
   );

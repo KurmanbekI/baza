@@ -1,15 +1,28 @@
+// server/server.js
 const express = require("express");
 const cors = require("cors");
+const authRoutes = require("./routes/auth");
+const taskRoutes = require("./routes/tasks");
+const db = require("./db/db.js");
+
 const app = express();
-const PORT = 3001;
 
-app.use(cors());
 app.use(express.json());
+app.use(cors({ origin: "*" }));
 
-app.use("/auth", require("./routes/auth"));
-app.use("/tasks", require("./routes/tasks"));
-app.use("/timesheet", require("./routes/timesheet"));
+// Маршруты
+app.use("/auth", authRoutes);
+app.use("/tasks", taskRoutes);
 
-app.listen(PORT, () => {
-  console.log(`Сервер запущен на http://localhost:${PORT}`);
+// Проверка соединения с базой данных
+db.query('SELECT NOW()', (err, res) => {
+  if (err) {
+    console.error('Ошибка подключения к базе данных', err);
+  } else {
+    console.log('Успешное подключение к базе данных:', res.rows[0]);
+  }
+});
+
+app.listen(3001, () => {
+  console.log("Сервер запущен на http://localhost:3001");
 });
