@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
 import { useRouter } from "next/router";
-import styles from "@/styles/Supervisor.module.css";
+import styles from "../Supervisor.module.css";
 import { FaBars } from "react-icons/fa";
 
 export default function TimesheetAddPage() {
